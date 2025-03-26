@@ -1,8 +1,8 @@
 # Настройка MongoDB с шардированием
 
 ## Структура кластера
-- 3 конфигурационных сервера (configsvr1, configsvr2, configsvr3)
-- 3 шарда (shard1, shard2, shard3)
+- 1 конфигурационный сервер (configsvr1)
+- 2 шарда (shard1, shard2)
 - 2 маршрутизатора (mongos1, mongos2)
 
 ## Шаги по настройке
@@ -12,15 +12,13 @@
 docker-compose up -d
 ```
 
-### 2. Настройка конфигурационных серверов
+### 2. Настройка конфигурационного сервера
 ```bash
 docker exec -it configsvr1 mongosh --eval '
 rs.initiate({
   _id: "configReplSet",
   members: [
-    { _id: 0, host: "configsvr1:27017" },
-    { _id: 1, host: "configsvr2:27017" },
-    { _id: 2, host: "configsvr3:27017" }
+    { _id: 0, host: "configsvr1:27017" }
   ]
 })
 '
@@ -32,7 +30,6 @@ rs.initiate({
 docker exec -it mongos1 mongosh --eval '
 sh.addShard("shard1:27017")
 sh.addShard("shard2:27017")
-sh.addShard("shard3:27017")
 '
 ```
 
@@ -70,8 +67,15 @@ chmod +x scripts/count-documents.sh
 ## Подключение к кластеру
 Для подключения к кластеру используйте строку подключения:
 ```
-mongodb://mongos1:27023,mongos2:27024
+mongodb://mongos1:27020,mongos2:27021
 ```
+
+## Порты
+- Конфигурационный сервер (configsvr1): 27017
+- Шард 1 (shard1): 27018
+- Шард 2 (shard2): 27019
+- Маршрутизатор 1 (mongos1): 27020
+- Маршрутизатор 2 (mongos2): 27021
 
 ## Примечания
 - Все порты доступны на localhost
