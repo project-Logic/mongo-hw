@@ -1,24 +1,95 @@
+name: mongo-sharding
+
 services:
-  mongodb1:
-    container_name: mongodb1
-    image: dh-mirror.gitverse.ru/mongo:latest
+  # Конфигурационные серверы
+  configsvr1:
+    container_name: configsvr1
+    image: mongo:latest
+    command: mongod --configsvr --replSet configReplSet --port 27017
     volumes:
-      - mongodb1_data_container:/data/db
-
-  pymongo_api:
-    container_name: pymongo_api
-    build: 
-      context: api_app
-      dockerfile: Dockerfile
-    image: kazhem/pymongo_api:1.0.0
-    depends_on:
-      - mongodb1
+      - configsvr1_data:/data/db
     ports:
-      - 8080:8080
-    environment:
-      MONGODB_URL: "mongodb://mongodb1"
-      MONGODB_DATABASE_NAME: "somedb"
+      - "27017:27017"
 
+  configsvr2:
+    container_name: configsvr2
+    image: mongo:latest
+    command: mongod --configsvr --replSet configReplSet --port 27017
+    volumes:
+      - configsvr2_data:/data/db
+    ports:
+      - "27018:27017"
+
+  configsvr3:
+    container_name: configsvr3
+    image: mongo:latest
+    command: mongod --configsvr --replSet configReplSet --port 27017
+    volumes:
+      - configsvr3_data:/data/db
+    ports:
+      - "27019:27017"
+
+  # Шарды
+  shard1:
+    container_name: shard1
+    image: mongo:latest
+    command: mongod --shardsvr --port 27017
+    volumes:
+      - shard1_data:/data/db
+    ports:
+      - "27020:27017"
+
+  shard2:
+    container_name: shard2
+    image: mongo:latest
+    command: mongod --shardsvr --port 27017
+    volumes:
+      - shard2_data:/data/db
+    ports:
+      - "27021:27017"
+
+  shard3:
+    container_name: shard3
+    image: mongo:latest
+    command: mongod --shardsvr --port 27017
+    volumes:
+      - shard3_data:/data/db
+    ports:
+      - "27022:27017"
+
+  # Маршрутизаторы (mongos)
+  mongos1:
+    container_name: mongos1
+    image: mongo:latest
+    command: mongos --configdb configReplSet/configsvr1:27017,configsvr2:27017,configsvr3:27017 --port 27017
+    ports:
+      - "27023:27017"
+    depends_on:
+      - configsvr1
+      - configsvr2
+      - configsvr3
+      - shard1
+      - shard2
+      - shard3
+
+  mongos2:
+    container_name: mongos2
+    image: mongo:latest
+    command: mongos --configdb configReplSet/configsvr1:27017,configsvr2:27017,configsvr3:27017 --port 27017
+    ports:
+      - "27024:27017"
+    depends_on:
+      - configsvr1
+      - configsvr2
+      - configsvr3
+      - shard1
+      - shard2
+      - shard3
 
 volumes:
-  mongodb1_data_container:
+  configsvr1_data:
+  configsvr2_data:
+  configsvr3_data:
+  shard1_data:
+  shard2_data:
+  shard3_data:
