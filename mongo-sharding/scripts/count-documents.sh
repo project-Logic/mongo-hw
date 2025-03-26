@@ -16,13 +16,6 @@ db = db.getSiblingDB("somedb")
 db.somedb.countDocuments()
 '
 
-# Подсчет документов в shard3
-echo "Шард 3:"
-docker exec -it shard3 mongosh --eval '
-db = db.getSiblingDB("somedb")
-db.somedb.countDocuments()
-'
-
 # Общее количество документов через mongos
 echo "Общее количество документов (через mongos):"
 docker exec -it mongos1 mongosh --eval '
