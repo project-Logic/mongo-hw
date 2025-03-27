@@ -1,0 +1,30 @@
+@startuml C4_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+LAYOUT_WITH_LEGEND()
+
+title Контейнерная диаграмма MongoDB Sharding с репликацией и кешированием
+
+Person(user, "Пользователь", "Пользователь системы")
+
+System_Boundary(mongo_system, "MongoDB Sharding System") {
+    Container(mongos, "MongoDB Router", "Docker", "MongoDB Router (mongos) для маршрутизации запросов")
+    Container(configsvr, "Config Server", "Docker", "Config Server для хранения метаданных")
+    Container(shard1_primary, "Shard1 Primary", "Docker", "Primary узел первого шарда")
+    Container(shard1_secondary, "Shard1 Secondary", "Docker", "Secondary узел первого шарда")
+    Container(shard2_primary, "Shard2 Primary", "Docker", "Primary узел второго шарда")
+    Container(shard2_secondary, "Shard2 Secondary", "Docker", "Secondary узел второго шарда")
+    Container(redis, "Redis", "Docker", "Redis для кеширования")
+    Container(api, "API Application", "Docker", "FastAPI приложение для работы с данными")
+}
+
+Rel(user, api, "HTTP/HTTPS")
+Rel(api, mongos, "MongoDB Protocol")
+Rel(mongos, configsvr, "MongoDB Protocol")
+Rel(mongos, shard1_primary, "MongoDB Protocol")
+Rel(mongos, shard2_primary, "MongoDB Protocol")
+Rel(shard1_primary, shard1_secondary, "MongoDB Replication")
+Rel(shard2_primary, shard2_secondary, "MongoDB Replication")
+Rel(api, redis, "Redis Protocol")
+
+@enduml 
