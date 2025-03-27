@@ -1,89 +1,170 @@
 name: mongo-sharding-repl
 
 services:
-  # Конфигурационные серверы
+  # Конфигурационный сервер
   configsvr1:
     container_name: configsvr1
     image: mongo:latest
-    command: mongod --configsvr --replSet configReplSet --port 27017
+    command: mongod --configsvr --replSet configReplSet --port 27017 --bind_ip_all
     volumes:
       - configsvr1_data:/data/db
     ports:
       - "27017:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.10
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Шард 1 с репликацией
   shard1_primary:
     container_name: shard1_primary
     image: mongo:latest
-    command: mongod --shardsvr --replSet shard1 --port 27017
+    command: mongod --shardsvr --replSet shard1 --port 27017 --bind_ip_all
     volumes:
       - shard1_primary_data:/data/db
     ports:
       - "27018:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.13
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  shard1_secondary1:
-    container_name: shard1_secondary1
+  shard1_secondary:
+    container_name: shard1_secondary
     image: mongo:latest
-    command: mongod --shardsvr --replSet shard1 --port 27017
+    command: mongod --shardsvr --replSet shard1 --port 27017 --bind_ip_all
     volumes:
-      - shard1_secondary1_data:/data/db
+      - shard1_secondary_data:/data/db
     ports:
       - "27019:27017"
-
-  shard1_secondary2:
-    container_name: shard1_secondary2
-    image: mongo:latest
-    command: mongod --shardsvr --replSet shard1 --port 27017
-    volumes:
-      - shard1_secondary2_data:/data/db
-    ports:
-      - "27020:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.14
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   # Шард 2 с репликацией
   shard2_primary:
     container_name: shard2_primary
     image: mongo:latest
-    command: mongod --shardsvr --replSet shard2 --port 27017
+    command: mongod --shardsvr --replSet shard2 --port 27017 --bind_ip_all
     volumes:
       - shard2_primary_data:/data/db
     ports:
-      - "27021:27017"
+      - "27020:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.15
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
-  shard2_secondary1:
-    container_name: shard2_secondary1
+  shard2_secondary:
+    container_name: shard2_secondary
     image: mongo:latest
-    command: mongod --shardsvr --replSet shard2 --port 27017
+    command: mongod --shardsvr --replSet shard2 --port 27017 --bind_ip_all
     volumes:
-      - shard2_secondary1_data:/data/db
+      - shard2_secondary_data:/data/db
+    ports:
+      - "27021:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.16
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Маршрутизаторы (mongos)
+  mongos1:
+    container_name: mongos1
+    image: mongo:latest
+    command: mongos --configdb configReplSet/configsvr1:27017 --port 27017 --bind_ip_all
     ports:
       - "27022:27017"
-
-  shard2_secondary2:
-    container_name: shard2_secondary2
-    image: mongo:latest
-    command: mongod --shardsvr --replSet shard2 --port 27017
-    volumes:
-      - shard2_secondary2_data:/data/db
-    ports:
-      - "27023:27017"
-
-  # Маршрутизатор (mongos)
-  mongos:
-    container_name: mongos
-    image: mongo:latest
-    command: mongos --configdb configReplSet/configsvr1:27017 --port 27017
-    ports:
-      - "27024:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.17
     depends_on:
       - configsvr1
       - shard1_primary
       - shard2_primary
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  mongos2:
+    container_name: mongos2
+    image: mongo:latest
+    command: mongos --configdb configReplSet/configsvr1:27017 --port 27017 --bind_ip_all
+    ports:
+      - "27023:27017"
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.18
+    depends_on:
+      - configsvr1
+      - shard1_primary
+      - shard2_primary
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # API приложение
+  pymongo_api:
+    container_name: pymongo_api
+    build: 
+      context: api_app
+      dockerfile: Dockerfile
+    image: kazhem/pymongo_api:1.0.0
+    depends_on:
+      - mongos1
+      - mongos2
+    ports:
+      - 8080:8080
+    networks:
+      app-network:
+        ipv4_address: 173.17.0.19
+    environment:
+      MONGODB_URL: "mongodb://mongos1:27017,mongos2:27017"
+      MONGODB_DATABASE_NAME: "somedb"
+
+networks:
+  app-network:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 173.17.0.0/16
 
 volumes:
   configsvr1_data:
   shard1_primary_data:
-  shard1_secondary1_data:
-  shard1_secondary2_data:
+  shard1_secondary_data:
   shard2_primary_data:
-  shard2_secondary1_data:
-  shard2_secondary2_data:
+  shard2_secondary_data:
