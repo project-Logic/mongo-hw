@@ -1,68 +1,118 @@
-# Настройка MongoDB с шардированием
+# MongoDB Шардинг
 
-## Структура кластера
-- 1 конфигурационный сервер (configsvr1)
-- 2 шарда (shard1, shard2)
-- 2 маршрутизатора (mongos1, mongos2)
+Этот проект демонстрирует настройку MongoDB с шардингом, используя Docker Compose.
 
-## Шаги по настройке
+## Архитектура
 
-### 1. Запуск контейнеров
+- Config Server (ReplicaSet)
+- 2 Шарда (каждый в режиме ReplicaSet)
+- Mongos Router
+- Python API приложение
+
+## Предварительные требования
+
+- Docker
+- Docker Compose
+- Python 3.x
+- pip (менеджер пакетов Python)
+
+## Запуск
+
+1. Запустите контейнеры:
 ```bash
-docker-compose up -d
+docker compose up -d
 ```
 
-### 2. Настройка конфигурационного сервера
+2. Подождите около 10 секунд и инициализируйте Config Server ReplicaSet:
 ```bash
-docker exec -it configsvr1 mongosh --eval '
-rs.initiate({
-  _id: "configReplSet",
-  members: [
-    { _id: 0, host: "configsvr1:27017" }
-  ]
-})
-'
+docker exec -it configSrv mongosh --eval "rs.initiate({_id: 'config_server', members: [{_id: 0, host: 'configSrv:27017'}]})"
 ```
 
-### 3. Добавление шардов в кластер
+3. Подождите около 10 секунд и инициализируйте Shard1 ReplicaSet:
 ```bash
-# Подключение к первому mongos
-docker exec -it mongos1 mongosh --eval '
-sh.addShard("shard1:27017")
-sh.addShard("shard2:27017")
-'
+docker exec -it shard1 mongosh --port 27018 --eval "rs.initiate({_id: 'shard1', members: [{_id: 0, host: 'shard1:27018'}]})"
 ```
 
-### 4. Включение шардирования для базы данных
+4. Подождите около 10 секунд и инициализируйте Shard2 ReplicaSet:
 ```bash
-# Подключение к mongos
-docker exec -it mongos1 mongosh --eval '
-sh.enableSharding("somedb")
-'
+docker exec -it shard2 mongosh --port 27019 --eval "rs.initiate({_id: 'shard2', members: [{_id: 0, host: 'shard2:27019'}]})"
 ```
 
-### 5. Настройка ключа шардирования
+5. Подождите около 10 секунд и добавьте шарды в кластер через mongos:
 ```bash
-# Подключение к mongos
-docker exec -it mongos1 mongosh --eval '
-sh.shardCollection("somedb", { "shard_key": 1 })
-'
+docker exec -it mongos_router mongosh --port 27020 --eval "sh.addShard('shard1/shard1:27018'); sh.addShard('shard2/shard2:27019')"
+```
+
+6. Включите шардинг для базы данных:
+```bash
+docker exec -it mongos_router mongosh --port 27020 --eval "sh.enableSharding('somedb')"
+```
+
+7. Настройте ключ шардирования для коллекции:
+```bash
+docker exec -it mongos_router mongosh --port 27020 --eval "sh.shardCollection('somedb.test_collection', { 'shard_key': 1 })"
+```
+
+## Загрузка тестовых данных
+
+1. Установите зависимости Python:
+```bash
+cd scripts
+pip install -r requirements.txt
+```
+
+2. Запустите скрипт для генерации данных:
+```bash
+python generate_data.py
+```
+
+Скрипт создаст 1000 тестовых документов с полями:
+- shard_key: уникальный идентификатор (0-999)
+- value: текстовое описание документа
+- timestamp: время создания документа
+
+## Проверка распределения данных
+
+1. Проверка общего количества документов через mongos:
+```bash
+docker exec -it mongos_router mongosh --port 27020 --eval "db.test_collection.count()"
+```
+
+2. Проверка количества документов в каждом шарде:
+```bash
+# Проверка Shard1
+docker exec -it shard1 mongosh --port 27018 --eval "db.test_collection.count()"
+
+# Проверка Shard2
+docker exec -it shard2 mongosh --port 27019 --eval "db.test_collection.count()"
+```
+
+3. Проверка распределения данных по шардам:
+```bash
+docker exec -it mongos_router mongosh --port 27020 --eval "db.test_collection.getShardDistribution()"
 ```
 
 ## Проверка статуса
-- Проверка статуса шардирования: `sh.status()`
-- Проверка распределения данных: `db.somedb.getShardDistribution()`
 
-### Подсчет документов в шардах
-Для подсчета количества документов в каждом шарде и общего количества документов в кластере можно использовать скрипт:
+Чтобы проверить статус шардинга:
 ```bash
-chmod +x scripts/count-documents.sh
-./scripts/count-documents.sh
+docker exec -it mongos_router mongosh --port 27020 --eval "sh.status()"
 ```
 
-Скрипт покажет:
-- Количество документов в каждом шарде отдельно
-- Общее количество документов через mongos
+## Порты
+
+- Config Server: 27017
+- Shard1: 27018
+- Shard2: 27019
+- Mongos Router: 27020
+- Python API: 8080
+
+## Остановка и очистка
+
+Для остановки и удаления всех контейнеров и томов:
+```bash
+docker compose down -v
+```
 
 ## Подключение к кластеру
 Для подключения к кластеру используйте строку подключения:
@@ -70,28 +120,11 @@ chmod +x scripts/count-documents.sh
 mongodb://mongos1:27020,mongos2:27021
 ```
 
-## Порты
-- Конфигурационный сервер (configsvr1): 27017
-- Шард 1 (shard1): 27018
-- Шард 2 (shard2): 27019
-- Маршрутизатор 1 (mongos1): 27020
-- Маршрутизатор 2 (mongos2): 27021
-
 ## Примечания
 - Все порты доступны на localhost
 - Для отказоустойчивости рекомендуется использовать отдельные хосты для каждого компонента
 - Рекомендуется настроить аутентификацию для безопасности
 - В данной конфигурации используется 2 маршрутизатора для балансировки нагрузки
-
-```shell
-docker compose up -d
-```
-
-Заполняем mongodb данными
-
-```shell
-./scripts/mongo-init.sh
-```
 
 ## Как проверить
 
