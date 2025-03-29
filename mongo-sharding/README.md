@@ -50,7 +50,7 @@ docker exec -it mongos_router mongosh --port 27020 --eval "sh.enableSharding('so
 
 7. Настройте ключ шардирования для коллекции:
 ```bash
-docker exec -it mongos_router mongosh --port 27020 --eval "sh.shardCollection('somedb.test_collection', { 'shard_key': 1 })"
+docker exec -it mongos_router mongosh --port 27020 --eval "sh.shardCollection('somedb.helloDoc', { 'shard_key': 1 })"
 ```
 
 ## Загрузка тестовых данных
@@ -75,21 +75,21 @@ python generate_data.py
 
 1. Проверка общего количества документов через mongos:
 ```bash
-docker exec -it mongos_router mongosh --port 27020 --eval "db.test_collection.count()"
+docker exec -it mongos_router mongosh --port 27020 --eval "db.helloDoc.count()"
 ```
 
 2. Проверка количества документов в каждом шарде:
 ```bash
 # Проверка Shard1
-docker exec -it shard1 mongosh --port 27018 --eval "db.test_collection.count()"
+docker exec -it shard1 mongosh --port 27018 --eval "db.helloDoc.count()"
 
 # Проверка Shard2
-docker exec -it shard2 mongosh --port 27019 --eval "db.test_collection.count()"
+docker exec -it shard2 mongosh --port 27019 --eval "db.helloDoc.count()"
 ```
 
 3. Проверка распределения данных по шардам:
 ```bash
-docker exec -it mongos_router mongosh --port 27020 --eval "db.test_collection.getShardDistribution()"
+docker exec -it mongos_router mongosh --port 27020 --eval "db.helloDoc.getShardDistribution()"
 ```
 
 ## Проверка статуса
