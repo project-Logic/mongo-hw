@@ -4,7 +4,7 @@ from datetime import datetime
 # Подключение к MongoDB через mongos
 client = MongoClient('mongodb://localhost:27020')
 db = client.somedb
-collection = db.test_collection
+collection = db.helloDoc
 
 # Генерация 1000 документов
 documents = []

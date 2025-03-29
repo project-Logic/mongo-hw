@@ -64,7 +64,7 @@ docker exec -it mongos mongosh --eval "sh.enableSharding('somedb')"
 
 7. Настройте ключ шардирования для коллекции:
 ```bash
-docker exec -it mongos mongosh --eval "sh.shardCollection('somedb.test_collection', { 'shard_key': 'hashed' })"
+docker exec -it mongos mongosh --eval "sh.shardCollection('somedb.helloDoc', { 'shard_key': 'hashed' })"
 ```
 
 ## Загрузка тестовых данных
@@ -117,23 +117,23 @@ docker exec -it redis redis-cli config get default-ttl
 
 1. Проверьте общее количество документов через mongos:
 ```bash
-docker exec -it mongos mongosh --eval "db.test_collection.count()"
+docker exec -it mongos mongosh --eval "db.helloDoc.count()"
 ```
 
 2. Проверьте количество документов в каждом шарде:
 ```bash
 # Shard1
-docker exec -it shard1_primary mongosh --eval "db.test_collection.count()"
-docker exec -it shard1_secondary mongosh --eval "db.test_collection.count()"
+docker exec -it shard1_primary mongosh --eval "db.helloDoc.count()"
+docker exec -it shard1_secondary mongosh --eval "db.helloDoc.count()"
 
 # Shard2
-docker exec -it shard2_primary mongosh --eval "db.test_collection.count()"
-docker exec -it shard2_secondary mongosh --eval "db.test_collection.count()"
+docker exec -it shard2_primary mongosh --eval "db.helloDoc.count()"
+docker exec -it shard2_secondary mongosh --eval "db.helloDoc.count()"
 ```
 
 3. Проверьте распределение данных по шардам:
 ```bash
-docker exec -it mongos mongosh --eval "db.test_collection.getShardDistribution()"
+docker exec -it mongos mongosh --eval "db.helloDoc.getShardDistribution()"
 ```
 
 ## Проверка репликации
